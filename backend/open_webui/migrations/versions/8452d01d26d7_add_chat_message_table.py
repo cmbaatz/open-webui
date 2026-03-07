@@ -13,6 +13,8 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql as pg_dialect
+from sqlalchemy.dialects import sqlite as sqlite_dialect
 
 log = logging.getLogger(__name__)
 
@@ -103,9 +105,11 @@ def upgrade() -> None:
     dialect = conn.dialect.name
     if dialect == "mysql":
         insert_stmt = sa.insert(chat_message_table).prefix_with("IGNORE")
+    elif dialect == "sqlite":
+        insert_stmt = sqlite_dialect.insert(chat_message_table).on_conflict_do_nothing()
     else:
-        # PostgreSQL and SQLite (3.24+) both support ON CONFLICT DO NOTHING
-        insert_stmt = sa.insert(chat_message_table).on_conflict_do_nothing()
+        # PostgreSQL (including Aurora) supports ON CONFLICT DO NOTHING via dialect-specific insert
+        insert_stmt = pg_dialect.insert(chat_message_table).on_conflict_do_nothing()
 
     while True:
         batch = conn.execute(
